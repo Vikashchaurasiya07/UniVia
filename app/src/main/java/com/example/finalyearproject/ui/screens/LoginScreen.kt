@@ -113,7 +113,7 @@ fun LoginScreen(navController: NavController) {
                                 coroutineScope.launch {
                                     delay(300)
                                     isLoading.value = false
-                                    navController.navigate("Signup")
+                                    navController.navigate("studentDashboard")
                                 }
                             },
                             modifier = Modifier

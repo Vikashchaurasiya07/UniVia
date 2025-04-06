@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "633065453389",
+    "project_id": "univia01",
+    "storage_bucket": "univia01.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:633065453389:android:836fd5080f38048a346904",
+        "android_client_info": {
+          "package_name": "com.example.finalyearproject"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBU4hoLjKb34pnLpVL5DZyWGOdQ0Ki7nYg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

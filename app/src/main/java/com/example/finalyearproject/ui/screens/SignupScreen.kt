@@ -1,5 +1,6 @@
 package com.example.finalyearproject.ui.screens
 
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -19,12 +20,15 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.finalyearproject.R
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.database.FirebaseDatabase
 
 @Composable
 fun SignupScreen(navController: NavController) {
@@ -35,8 +39,11 @@ fun SignupScreen(navController: NavController) {
     val email = remember { mutableStateOf("") }
     val password = remember { mutableStateOf("") }
     val repeatPassword = remember { mutableStateOf("") }
-
     val focusedColor = remember { mutableStateOf(Color(0xFFFF6FD8)) }
+    val loading = remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val auth = FirebaseAuth.getInstance()
+    val database = FirebaseDatabase.getInstance().reference
 
     val backgroundGradient = Brush.verticalGradient(
         listOf(Color(0xFFFDEBEB), Color(0xFFE7F0FD))
@@ -51,6 +58,17 @@ fun SignupScreen(navController: NavController) {
             email.value.isNotBlank() &&
             password.value.isNotBlank() &&
             repeatPassword.value.isNotBlank()
+
+    if (loading.value) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.3f)),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator(color = focusedColor.value)
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -122,14 +140,41 @@ fun SignupScreen(navController: NavController) {
                     .padding(horizontal = 4.dp)
             ) {
                 Button(
-                    onClick = { navController.navigate("Login") },
+                    onClick = {
+                        loading.value = true
+                        auth.createUserWithEmailAndPassword(email.value.trim(), password.value.trim())
+                            .addOnCompleteListener { task ->
+                                if (task.isSuccessful) {
+                                    val uid = task.result?.user?.uid ?: return@addOnCompleteListener
+                                    val userMap = mapOf(
+                                        "auid" to auid.value,
+                                        "name" to name.value,
+                                        "batch" to batch.value,
+                                        "section" to sec.value,
+                                        "email" to email.value
+                                    )
+                                    database.child("users").child(uid).setValue(userMap)
+                                        .addOnCompleteListener { dbTask ->
+                                            loading.value = false
+                                            if (dbTask.isSuccessful) {
+                                                auth.currentUser?.sendEmailVerification()
+                                                Toast.makeText(context, "Registered! Please verify your email.", Toast.LENGTH_LONG).show()
+                                                navController.navigate("Login")
+                                            } else {
+                                                Toast.makeText(context, "Failed to save user data.", Toast.LENGTH_LONG).show()
+                                            }
+                                        }
+                                } else {
+                                    loading.value = false
+                                    Toast.makeText(context, "Signup failed: ${task.exception?.message}", Toast.LENGTH_LONG).show()
+                                }
+                            }
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(16.dp)
                         .height(50.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = focusedColor.value
-                    )
+                    colors = ButtonDefaults.buttonColors(containerColor = focusedColor.value)
                 ) {
                     Text("Register", color = Color.White)
                 }
@@ -212,7 +257,7 @@ fun PasswordField(
                 Icon(
                     imageVector = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
                     contentDescription = if (passwordVisible) "Hide password" else "Show password",
-                    tint = glowColor.copy(alpha = 0.8f) // Soft tint matching your field glow
+                    tint = glowColor.copy(alpha = 0.8f)
                 )
             }
         },

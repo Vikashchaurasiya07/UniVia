@@ -7,7 +7,8 @@ import androidx.navigation.compose.composable
 import com.example.finalyearproject.ui.screens.SplashScreen
 import com.example.finalyearproject.ui.screens.LoginScreen
 import com.example.finalyearproject.ui.screens.SignupScreen
-import com.example.finalyearproject.ui.screens.forgotpassword
+import com.example.finalyearproject.ui.screens.ForgotPassword
+import com.example.finalyearproject.ui.screens.StudentDashboard
 
 @Composable
 fun AppNavigation(navController: NavHostController) {
@@ -15,6 +16,8 @@ fun AppNavigation(navController: NavHostController) {
         composable("splash") { SplashScreen(navController) }
         composable("login") { LoginScreen(navController) }
         composable("signup") { SignupScreen(navController) }
-        composable("forgot password") { forgotpassword(navController)}
+        composable("forgot Password") { ForgotPassword(navController) }
+        composable("studentDashboard") { StudentDashboard(navController) }
+
     }
 }
