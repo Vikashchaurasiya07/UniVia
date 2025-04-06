@@ -64,6 +64,13 @@ dependencies {
     debugImplementation(libs.androidx.ui.test.manifest)
     implementation (libs.androidx.material.icons.extended)
     implementation ("com.google.firebase:firebase-auth:23.2.0")
+    // WorkManager for background tasks
+    implementation (libs.androidx.work.runtime.ktx)
+
+
+// Notification support
+    implementation (libs.androidx.core.ktx)
+
 
 
 

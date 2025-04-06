@@ -1,6 +1,6 @@
-
 package com.example.finalyearproject.ui.screens
 
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -21,13 +21,15 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.finalyearproject.R
-import kotlinx.coroutines.delay
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.database.FirebaseDatabase
 import kotlinx.coroutines.launch
 
 @Composable
@@ -37,13 +39,14 @@ fun LoginScreen(navController: NavController) {
     val isPasswordVisible = remember { mutableStateOf(false) }
     val focusedColor = remember { mutableStateOf(Color(0xFF9575CD)) }
     val isLoading = remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
 
     val backgroundGradient = Brush.verticalGradient(
         colors = listOf(Color(0xFFFDEBEB), Color(0xFFE7F0FD))
     )
 
     val cardColor = Color.White.copy(alpha = 0.95f)
-    val coroutineScope = rememberCoroutineScope()
 
     Box(
         modifier = Modifier
@@ -98,8 +101,7 @@ fun LoginScreen(navController: NavController) {
                             .fillMaxWidth(),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        StyledInput("Email", email, Color(0xFF81C784), focusedColor) // Green glow
-
+                        StyledInput("Email", email, Color(0xFF81C784), focusedColor)
 
                         Spacer(modifier = Modifier.height(16.dp))
 
@@ -111,17 +113,42 @@ fun LoginScreen(navController: NavController) {
                             onClick = {
                                 isLoading.value = true
                                 coroutineScope.launch {
-                                    delay(300)
-                                    isLoading.value = false
-                                    navController.navigate("studentDashboard")
+                                    val auth = FirebaseAuth.getInstance()
+                                    val db = FirebaseDatabase.getInstance().reference
+                                    auth.signInWithEmailAndPassword(email.value.trim(), password.value.trim())
+                                        .addOnCompleteListener { task ->
+                                            if (task.isSuccessful) {
+                                                val uid = auth.currentUser?.uid
+                                                if (uid != null) {
+                                                    db.child("users").child(uid).child("name").get()
+                                                        .addOnSuccessListener { snapshot ->
+                                                            isLoading.value = false
+                                                            if (snapshot.exists()) {
+                                                                navController.navigate("StudentDashboard")
+                                                            } else {
+                                                                auth.signOut()
+                                                                Toast.makeText(context, "Access denied", Toast.LENGTH_SHORT).show()
+                                                            }
+                                                        }
+                                                        .addOnFailureListener {
+                                                            isLoading.value = false
+                                                            Toast.makeText(context, "Failed to fetch user data", Toast.LENGTH_SHORT).show()
+                                                        }
+                                                } else {
+                                                    isLoading.value = false
+                                                    Toast.makeText(context, "Something went wrong", Toast.LENGTH_SHORT).show()
+                                                }
+                                            } else {
+                                                isLoading.value = false
+                                                Toast.makeText(context, "Login failed", Toast.LENGTH_SHORT).show()
+                                            }
+                                        }
                                 }
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(50.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = focusedColor.value
-                            )
+                            colors = ButtonDefaults.buttonColors(containerColor = focusedColor.value)
                         ) {
                             Text("Login", color = Color.White)
                         }
@@ -134,7 +161,6 @@ fun LoginScreen(navController: NavController) {
                             modifier = Modifier.clickable {
                                 isLoading.value = true
                                 coroutineScope.launch {
-                                    delay(300)
                                     isLoading.value = false
                                     navController.navigate("signup")
                                 }
@@ -149,7 +175,6 @@ fun LoginScreen(navController: NavController) {
                             modifier = Modifier.clickable {
                                 isLoading.value = true
                                 coroutineScope.launch {
-                                    delay(300)
                                     isLoading.value = false
                                     navController.navigate("forgot password")
                                 }

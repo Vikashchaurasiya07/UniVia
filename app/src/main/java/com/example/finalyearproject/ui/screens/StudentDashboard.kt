@@ -1,15 +1,252 @@
 package com.example.finalyearproject.ui.screens
 
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import android.content.Context
+import android.widget.Toast
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import com.example.finalyearproject.R
+import com.example.finalyearproject.navigation.NotificationWorker
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.database.*
+import java.text.SimpleDateFormat
+import java.util.*
+import java.util.concurrent.TimeUnit
+import androidx.core.content.edit
 
-
+data class TeacherMessage(val content: String, val date: String)
 
 @Composable
-fun StudentDashboard (navController: NavController){
+fun StudentDashboard(navController: NavController) {
+    val context = LocalContext.current
+    val auth = FirebaseAuth.getInstance()
+    val database = FirebaseDatabase.getInstance().reference
+    val uid = auth.currentUser?.uid
 
-    Text(
-        text = "hello"
+    val name = remember { mutableStateOf("") }
+    val auid = remember { mutableStateOf("") }
+    val section = remember { mutableStateOf("") }
+    val batch = remember { mutableStateOf("") }
+    val loading = remember { mutableStateOf(true) }
+    val showDialog = remember { mutableStateOf(false) }
+
+    val teacherMessages = remember {
+        mutableStateListOf(
+            TeacherMessage("Submit your assignment by tomorrow!", "2025-04-06"),
+            TeacherMessage("Project presentations start next week.", "2025-04-05"),
+            TeacherMessage("Guest lecture on AI this Friday.", "2025-04-04")
+        )
+    }
+
+    val clickedMessages = remember { mutableStateListOf<String>() }
+
+    val sortedMessages = teacherMessages.sortedByDescending {
+        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(it.date)
+    }
+
+    LaunchedEffect(Unit) {
+        if (uid != null) {
+            database.child("users").child(uid).addListenerForSingleValueEvent(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    name.value = snapshot.child("name").getValue(String::class.java) ?: ""
+                    auid.value = snapshot.child("auid").getValue(String::class.java) ?: ""
+                    section.value = snapshot.child("section").getValue(String::class.java) ?: ""
+                    batch.value = snapshot.child("batch").getValue(String::class.java) ?: ""
+                    loading.value = false
+                }
+
+                override fun onCancelled(error: DatabaseError) {
+                    Toast.makeText(context, "Failed to load data", Toast.LENGTH_SHORT).show()
+                    loading.value = false
+                }
+            })
+        }
+
+        val workRequest = PeriodicWorkRequestBuilder<NotificationWorker>(15, TimeUnit.MINUTES).build()
+        WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+            "TeacherMessageWorker",
+            ExistingPeriodicWorkPolicy.KEEP,
+            workRequest
+        )
+    }
+
+    val backgroundGradient = Brush.verticalGradient(
+        listOf(Color(0xFFFDEBEB), Color(0xFFE7F0FD))
     )
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(brush = backgroundGradient)
+            .padding(16.dp)
+    ) {
+        if (loading.value) {
+            CircularProgressIndicator(
+                modifier = Modifier.align(Alignment.Center),
+                color = Color(0xFFBA68C8)
+            )
+        } else {
+            Column {
+                // Logout Icon
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    IconButton(onClick = { showDialog.value = true }) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_logout),
+                            contentDescription = "Logout",
+                            tint = Color(0xFFBA68C8)
+                        )
+                    }
+                }
+
+                // Profile Card
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(220.dp)
+                        .align(Alignment.CenterHorizontally),
+                    shape = RoundedCornerShape(30.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.95f)),
+                    elevation = CardDefaults.cardElevation(8.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "Welcome, ${name.value}!",
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF7E57C2)
+                        )
+                        Text(
+                            text = "“Believe in yourself and all that you are.”",
+                            fontSize = 14.sp,
+                            color = Color.Gray,
+                            textAlign = TextAlign.Center
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(20.dp)
+                        ) {
+                            Image(
+                                painter = painterResource(id = R.drawable.profile),
+                                contentDescription = "Profile Picture",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .size(80.dp)
+                                    .clip(CircleShape)
+                            )
+
+                            Column(horizontalAlignment = Alignment.Start) {
+                                Text("Name: ${name.value}", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                                Text("AUID: ${auid.value}", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                Text("Batch: ${batch.value}", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                Text("Section: ${section.value}", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                Text(
+                    text = "Notifications",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF7E57C2)
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    sortedMessages.forEach { msg ->
+                        val isClicked = remember { mutableStateOf(false) }
+
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    isClicked.value = true
+                                    clickedMessages.add(msg.content)
+                                    val sharedPref = context.getSharedPreferences("notifications", Context.MODE_PRIVATE)
+                                    sharedPref.edit { putBoolean("message_seen", true) }
+                                    androidx.core.app.NotificationManagerCompat.from(context).cancel(1)
+                                },
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (clickedMessages.contains(msg.content))
+                                    Color(0xFFD0F0C0) else Color.White
+                            ),
+                            elevation = CardDefaults.cardElevation(4.dp),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(text = msg.content, fontSize = 16.sp, color = Color.Black)
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = "Date: ${msg.date}",
+                                    fontSize = 12.sp,
+                                    color = Color.Gray
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Logout Confirmation Dialog
+        if (showDialog.value) {
+            AlertDialog(
+                onDismissRequest = { showDialog.value = false },
+                confirmButton = {
+                    TextButton(onClick = {
+                        auth.signOut()
+                        navController.navigate("login") {
+                            popUpTo("student_dashboard") { inclusive = true }
+                        }
+                        showDialog.value = false
+                    }) {
+                        Text("Yes", color = Color.Red)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDialog.value = false }) {
+                        Text("Cancel")
+                    }
+                },
+                title = { Text("Logout") },
+                text = { Text("Are you sure you want to logout?") }
+            )
+        }
+    }
 }
