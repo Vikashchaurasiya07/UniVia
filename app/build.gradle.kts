@@ -55,6 +55,8 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.core.splashscreen)
     implementation(libs.firebase.database)
+    implementation(libs.firebase.storage.ktx)
+    implementation(libs.firebase.storage)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -66,8 +68,8 @@ dependencies {
     implementation ("com.google.firebase:firebase-auth:23.2.0")
     // WorkManager for background tasks
     implementation (libs.androidx.work.runtime.ktx)
-
-
+    implementation ("com.google.firebase:firebase-storage-ktx")
+    implementation("com.google.firebase:firebase-database-ktx:21.0.0")
 // Notification support
     implementation (libs.androidx.core.ktx)
 

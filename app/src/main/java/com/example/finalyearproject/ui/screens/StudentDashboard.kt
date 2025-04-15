@@ -1,3 +1,4 @@
+// StudentDashboard.kt
 package com.example.finalyearproject.ui.screens
 
 import android.content.Context
@@ -6,6 +7,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -23,9 +26,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import androidx.work.ExistingPeriodicWorkPolicy
-import androidx.work.PeriodicWorkRequestBuilder
-import androidx.work.WorkManager
+import androidx.work.*
 import com.example.finalyearproject.R
 import com.example.finalyearproject.navigation.NotificationWorker
 import com.google.firebase.auth.FirebaseAuth
@@ -34,6 +35,8 @@ import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.TimeUnit
 import androidx.core.content.edit
+import androidx.core.app.NotificationManagerCompat
+import androidx.navigation.compose.rememberNavController
 
 data class TeacherMessage(val content: String, val date: String)
 
@@ -51,11 +54,16 @@ fun StudentDashboard(navController: NavController) {
     val loading = remember { mutableStateOf(true) }
     val showDialog = remember { mutableStateOf(false) }
 
+
     val teacherMessages = remember {
         mutableStateListOf(
             TeacherMessage("Submit your assignment by tomorrow!", "2025-04-06"),
             TeacherMessage("Project presentations start next week.", "2025-04-05"),
-            TeacherMessage("Guest lecture on AI this Friday.", "2025-04-04")
+            TeacherMessage("Guest lecture on AI this Friday.", "2025-04-04"),
+            TeacherMessage("New message posted", "2025-04-13"),
+            TeacherMessage("New message posted", "2025-04-13"),
+            TeacherMessage("New message posted", "2025-04-13"),
+            TeacherMessage("New message posted", "2025-04-13"),
         )
     }
 
@@ -64,6 +72,9 @@ fun StudentDashboard(navController: NavController) {
     val sortedMessages = teacherMessages.sortedByDescending {
         SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(it.date)
     }
+
+    val sharedPref = context.getSharedPreferences("notifications", Context.MODE_PRIVATE)
+    val hasSeenMessage = sharedPref.getBoolean("message_seen", false)
 
     LaunchedEffect(Unit) {
         if (uid != null) {
@@ -83,12 +94,14 @@ fun StudentDashboard(navController: NavController) {
             })
         }
 
-        val workRequest = PeriodicWorkRequestBuilder<NotificationWorker>(15, TimeUnit.MINUTES).build()
-        WorkManager.getInstance(context).enqueueUniquePeriodicWork(
-            "TeacherMessageWorker",
-            ExistingPeriodicWorkPolicy.KEEP,
-            workRequest
-        )
+        if (!hasSeenMessage) {
+            val workRequest = PeriodicWorkRequestBuilder<NotificationWorker>(1, TimeUnit.HOURS).build()
+            WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+                "TeacherMessageWorker",
+                ExistingPeriodicWorkPolicy.KEEP,
+                workRequest
+            )
+        }
     }
 
     val backgroundGradient = Brush.verticalGradient(
@@ -107,8 +120,7 @@ fun StudentDashboard(navController: NavController) {
                 color = Color(0xFFBA68C8)
             )
         } else {
-            Column {
-                // Logout Icon
+            Column(modifier = Modifier.fillMaxSize()) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End
@@ -122,7 +134,6 @@ fun StudentDashboard(navController: NavController) {
                     }
                 }
 
-                // Profile Card
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -168,10 +179,26 @@ fun StudentDashboard(navController: NavController) {
                             )
 
                             Column(horizontalAlignment = Alignment.Start) {
-                                Text("Name: ${name.value}", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                                Text("AUID: ${auid.value}", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                                Text("Batch: ${batch.value}", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                                Text("Section: ${section.value}", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                Text(
+                                    "Name: ${name.value}",
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    "AUID: ${auid.value}",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    "Batch: ${batch.value}",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    "Section: ${section.value}",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
                         }
                     }
@@ -188,22 +215,31 @@ fun StudentDashboard(navController: NavController) {
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    sortedMessages.forEach { msg ->
-                        val isClicked = remember { mutableStateOf(false) }
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .padding(bottom = 80.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    items(sortedMessages) { msg ->
+                        val isClicked =
+                            remember { mutableStateOf(clickedMessages.contains(msg.content)) }
 
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable {
-                                    isClicked.value = true
-                                    clickedMessages.add(msg.content)
-                                    val sharedPref = context.getSharedPreferences("notifications", Context.MODE_PRIVATE)
-                                    sharedPref.edit { putBoolean("message_seen", true) }
-                                    androidx.core.app.NotificationManagerCompat.from(context).cancel(1)
+                                    if (!isClicked.value) {
+                                        isClicked.value = true
+                                        clickedMessages.add(msg.content)
+                                        sharedPref.edit { putBoolean("message_seen", true) }
+                                        NotificationManagerCompat.from(context).cancel(1)
+                                        WorkManager.getInstance(context)
+                                            .cancelUniqueWork("TeacherMessageWorker")
+                                    }
                                 },
                             colors = CardDefaults.cardColors(
-                                containerColor = if (clickedMessages.contains(msg.content))
+                                containerColor = if (isClicked.value)
                                     Color(0xFFD0F0C0) else Color.White
                             ),
                             elevation = CardDefaults.cardElevation(4.dp),
@@ -223,8 +259,49 @@ fun StudentDashboard(navController: NavController) {
                 }
             }
         }
+// Bottom Navigation stretched across the entire bottom evenly
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .align(Alignment.BottomCenter),
+            horizontalArrangement = Arrangement.SpaceBetween, // Perfect even spread
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            @Composable
+            fun navItem(icon: Int, label: String, onClick: () -> Unit) {
+                Column(
+                    modifier = Modifier
+                        .clickable(onClick = onClick),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Icon(
+                        painter = painterResource(id = icon),
+                        contentDescription = label,
+                        tint = Color(0xFF7E57C2),
+                        modifier = Modifier.size(28.dp)
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = label,
+                        fontSize = 12.sp,
+                        color = Color(0xFF7E57C2),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
 
-        // Logout Confirmation Dialog
+            navItem(R.drawable.eca, "ECA") {
+                Toast.makeText(context, "Navigating to ECA", Toast.LENGTH_SHORT).show()
+                navController.navigate("ECA")
+            }
+
+            navItem(R.drawable.leave, "Leave") { navController.navigate("updates") }
+            navItem(R.drawable.certificate, "Certs") { navController.navigate("certificates") }
+            navItem(R.drawable.timetable, "Timetable") { navController.navigate("timetable") }
+        }
+
+
         if (showDialog.value) {
             AlertDialog(
                 onDismissRequest = { showDialog.value = false },

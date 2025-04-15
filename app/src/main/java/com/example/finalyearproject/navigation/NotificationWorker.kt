@@ -4,46 +4,51 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import androidx.work.Worker
+import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.example.finalyearproject.R
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.database.*
+import com.google.firebase.database.FirebaseDatabase
+import kotlinx.coroutines.tasks.await
 
-class NotificationWorker(context: Context, workerParams: WorkerParameters) : Worker(context, workerParams) {
+class NotificationWorker(context: Context, workerParams: WorkerParameters) :
+    CoroutineWorker(context, workerParams) {
 
     private val auth = FirebaseAuth.getInstance()
     private val database = FirebaseDatabase.getInstance().reference
 
-    override fun doWork(): Result {
-        val uid = auth.currentUser?.uid
+    override suspend fun doWork(): Result {
+        val uid = auth.currentUser?.uid ?: return Result.failure()
 
-        if (uid != null) {
-            database.child("teacher_messages").addListenerForSingleValueEvent(object : ValueEventListener {
-                override fun onDataChange(snapshot: DataSnapshot) {
-                    var hasUnread = false
-                    for (messageSnapshot in snapshot.children) {
-                        val read = messageSnapshot.child("readBy").child(uid).getValue(Boolean::class.java) == true
-                        if (!read) {
-                            hasUnread = true
-                            break
-                        }
-                    }
+        try {
+            val snapshot = database.child("teacher_messages").get().await()
 
-                    if (hasUnread) {
-                        showNotification()
-                    }
+            var hasUnread = false
+            for (messageSnapshot in snapshot.children) {
+                val read =
+                    messageSnapshot.child("readBy").child(uid).getValue(Boolean::class.java) == true
+                if (!read) {
+                    hasUnread = true
+                    break
                 }
+            }
 
-                override fun onCancelled(error: DatabaseError) {
-                    // Handle error if needed
-                }
-            })
+            if (hasUnread) {
+                showNotification()
+                Log.d("NotificationWorker", "Notification shown for unread messages.")
+            } else {
+                Log.d("NotificationWorker", "No unread messages.")
+            }
+
+            return Result.success()
+
+        } catch (e: Exception) {
+            Log.e("NotificationWorker", "Error checking messages", e)
+            return Result.failure()
         }
-
-        return Result.success()
     }
 
     private fun showNotification() {
@@ -59,7 +64,8 @@ class NotificationWorker(context: Context, workerParams: WorkerParameters) : Wor
                 description = "Notifications from your teachers"
             }
 
-            val manager = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val manager =
+                applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             manager.createNotificationChannel(channel)
         }
 
@@ -71,12 +77,11 @@ class NotificationWorker(context: Context, workerParams: WorkerParameters) : Wor
             .setAutoCancel(true)
             .build()
 
-        // ✅ Check for notification permission (Android 13+)
         if (NotificationManagerCompat.from(applicationContext).areNotificationsEnabled()) {
             try {
                 NotificationManagerCompat.from(applicationContext).notify(notificationId, notification)
             } catch (e: SecurityException) {
-                e.printStackTrace()
+                Log.e("NotificationWorker", "Permission issue", e)
             }
         }
     }
