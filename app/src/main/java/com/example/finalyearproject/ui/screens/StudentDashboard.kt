@@ -36,7 +36,6 @@ import java.util.*
 import java.util.concurrent.TimeUnit
 import androidx.core.content.edit
 import androidx.core.app.NotificationManagerCompat
-import androidx.navigation.compose.rememberNavController
 
 data class TeacherMessage(val content: String, val date: String)
 
@@ -292,12 +291,19 @@ fun StudentDashboard(navController: NavController) {
             }
 
             navItem(R.drawable.eca, "ECA") {
-                Toast.makeText(context, "Navigating to ECA", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "ECA", Toast.LENGTH_SHORT).show()
                 navController.navigate("ECA")
             }
 
-            navItem(R.drawable.leave, "Leave") { navController.navigate("updates") }
-            navItem(R.drawable.certificate, "Certs") { navController.navigate("certificates") }
+            navItem(R.drawable.leave, "leave") {
+                Toast.makeText(context, "Leave", Toast.LENGTH_SHORT).show()
+                navController.navigate("leave")
+            }
+
+            navItem(R.drawable.certificate, "Certs") {
+                Toast.makeText(context, "Certs", Toast.LENGTH_SHORT).show()
+                navController.navigate("Certificates")
+            }
             navItem(R.drawable.timetable, "Timetable") { navController.navigate("timetable") }
         }
 

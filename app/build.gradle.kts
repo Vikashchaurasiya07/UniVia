@@ -8,6 +8,12 @@ plugins {
 android {
     namespace = "com.example.finalyearproject"
     compileSdk = 35
+    packaging {
+        resources.excludes.add("META-INF/INDEX.LIST")
+        resources.excludes.add("META-INF/DEPENDENCIES")
+
+    }
+
 
     defaultConfig {
         applicationId = "com.example.finalyearproject"
@@ -22,7 +28,7 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -30,16 +36,18 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions {
-        jvmTarget = "11"
+        jvmTarget = "17"
     }
     buildFeatures {
         compose = true
     }
+
 }
+
 
 dependencies {
 
@@ -72,8 +80,10 @@ dependencies {
     implementation("com.google.firebase:firebase-database-ktx:21.0.0")
 // Notification support
     implementation (libs.androidx.core.ktx)
-
-
-
-
+    implementation ("com.google.api-client:google-api-client-android:1.35.0")
+    implementation ("com.google.android.gms:play-services-auth:20.1.0")
+    implementation("com.google.apis:google-api-services-drive:v3-rev20240521-2.0.0")
+    implementation ("com.google.http-client:google-http-client-gson:1.39.2")
+    implementation("com.fasterxml.jackson.core:jackson-databind:2.13.1")
+    implementation ("com.google.auth:google-auth-library-oauth2-http:0.24.0")
 }

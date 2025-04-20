@@ -4,12 +4,14 @@ import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import com.example.finalyearproject.ui.screens.Certificates
 import com.example.finalyearproject.ui.screens.ECA
 import com.example.finalyearproject.ui.screens.SplashScreen
 import com.example.finalyearproject.ui.screens.LoginScreen
 import com.example.finalyearproject.ui.screens.SignupScreen
 import com.example.finalyearproject.ui.screens.ForgotPassword
 import com.example.finalyearproject.ui.screens.StudentDashboard
+import com.example.finalyearproject.ui.screens.leave
 import com.google.firebase.auth.FirebaseAuth
 
 @Composable
@@ -21,6 +23,8 @@ fun AppNavigation(navController: NavHostController) {
         composable("forgotPassword") { ForgotPassword(navController) }
         composable("studentDashboard") { StudentDashboard(navController) }
         composable("ECA") { ECA(navController) }
+        composable("leave") { leave(navController) }
+        composable("certificates") { Certificates(navController) }
     }
 }
 
