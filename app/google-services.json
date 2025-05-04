@@ -1,6 +1,7 @@
 {
   "project_info": {
     "project_number": "633065453389",
+    "firebase_url": "https://univia01-default-rtdb.firebaseio.com",
     "project_id": "univia01",
     "storage_bucket": "univia01.firebasestorage.app"
   },

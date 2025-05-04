@@ -65,6 +65,7 @@ dependencies {
     implementation(libs.firebase.database)
     implementation(libs.firebase.storage.ktx)
     implementation(libs.firebase.storage)
+    implementation(libs.firebase.firestore.ktx)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -81,9 +82,14 @@ dependencies {
 // Notification support
     implementation (libs.androidx.core.ktx)
     implementation ("com.google.api-client:google-api-client-android:1.35.0")
-    implementation ("com.google.android.gms:play-services-auth:20.1.0")
+    implementation ("com.google.android.gms:play-services-auth:21.3.0")
     implementation("com.google.apis:google-api-services-drive:v3-rev20240521-2.0.0")
-    implementation ("com.google.http-client:google-http-client-gson:1.39.2")
+    implementation ("com.google.http-client:google-http-client-gson:1.44.1")
     implementation("com.fasterxml.jackson.core:jackson-databind:2.13.1")
-    implementation ("com.google.auth:google-auth-library-oauth2-http:0.24.0")
+    implementation ("com.google.auth:google-auth-library-oauth2-http:1.23.0")
+    implementation ("com.google.accompanist:accompanist-swiperefresh:0.29.1-alpha")
+    implementation ("androidx.compose.foundation:foundation:1.8.0")  // Or the latest stable version
+    implementation ("androidx.compose.material3:material3:1.3.2")
+    implementation ("com.google.firebase:firebase-messaging:24.1.1")
+    implementation ("androidx.work:work-runtime-ktx:2.10.1")
 }

@@ -1,5 +1,6 @@
 package com.example.finalyearproject.ui.screens
 
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -30,6 +31,7 @@ import androidx.navigation.NavController
 import com.example.finalyearproject.R
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.launch
 
 @Composable
@@ -120,27 +122,59 @@ fun LoginScreen(navController: NavController) {
                                             if (task.isSuccessful) {
                                                 val uid = auth.currentUser?.uid
                                                 if (uid != null) {
-                                                    db.child("users").child(uid).child("name").get()
+                                                    // Fetching user role to distinguish between student and teacher
+                                                    val db = FirebaseDatabase.getInstance().reference
+
+                                                    // First check in 'users' node for students
+                                                    db.child("users").child(uid).get()
                                                         .addOnSuccessListener { snapshot ->
-                                                            isLoading.value = false
                                                             if (snapshot.exists()) {
+                                                                // User exists in 'users' node, redirect to Student Dashboard
+                                                                isLoading.value = false
+                                                                // Get FCM token and store it in the database
+                                                                saveFcmToken(uid, false)
                                                                 navController.navigate("StudentDashboard")
                                                             } else {
-                                                                auth.signOut()
-                                                                Toast.makeText(context, "Access denied", Toast.LENGTH_SHORT).show()
+                                                                // Check in 'teachers' node for teachers
+                                                                db.child("teachers").child(uid).get()
+                                                                    .addOnSuccessListener { teacherSnapshot ->
+                                                                        if (teacherSnapshot.exists()) {
+                                                                            // User exists in 'teachers' node, redirect to Teacher Dashboard
+                                                                            isLoading.value = false
+                                                                            // Get FCM token and store it in the database
+                                                                            saveFcmToken(uid, true)
+                                                                            navController.navigate("TeacherDashboard")
+                                                                        } else {
+                                                                            // User not found in either 'users' or 'teachers' node
+                                                                            auth.signOut()
+                                                                            isLoading.value = false
+                                                                            Toast.makeText(context, "Access Denied (User not found)", Toast.LENGTH_SHORT).show()
+                                                                        }
+                                                                    }
+                                                                    .addOnFailureListener { exception ->
+                                                                        // Failed to fetch teacher data
+                                                                        auth.signOut()
+                                                                        isLoading.value = false
+                                                                        Toast.makeText(context, "Failed to fetch teacher data: ${exception.message}", Toast.LENGTH_SHORT).show()
+                                                                        Log.e("LoginError", "Failed to fetch teacher data", exception)  // Add logging
+                                                                    }
                                                             }
                                                         }
-                                                        .addOnFailureListener {
+                                                        .addOnFailureListener { exception ->
+                                                            // Failed to fetch user data
                                                             isLoading.value = false
-                                                            Toast.makeText(context, "Failed to fetch user data", Toast.LENGTH_SHORT).show()
+                                                            Toast.makeText(context, "Failed to fetch user data: ${exception.message}", Toast.LENGTH_SHORT).show()
+                                                            Log.e("LoginError", "Failed to fetch user data", exception)  // Add logging
                                                         }
                                                 } else {
+                                                    // UID is null, sign out and show error
                                                     isLoading.value = false
                                                     Toast.makeText(context, "Something went wrong", Toast.LENGTH_SHORT).show()
                                                 }
                                             } else {
+                                                // Login failed
                                                 isLoading.value = false
-                                                Toast.makeText(context, "Login failed", Toast.LENGTH_SHORT).show()
+                                                Toast.makeText(context, "Login failed: ${task.exception?.message}", Toast.LENGTH_SHORT).show()
                                             }
                                         }
                                 }
@@ -176,7 +210,7 @@ fun LoginScreen(navController: NavController) {
                                 isLoading.value = true
                                 coroutineScope.launch {
                                     isLoading.value = false
-                                    navController.navigate("forgot password")
+                                    navController.navigate("forgotPassword")
                                 }
                             }
                         )
@@ -186,6 +220,24 @@ fun LoginScreen(navController: NavController) {
         }
     }
 }
+
+private fun saveFcmToken(uid: String, isTeacher: Boolean) {
+    FirebaseMessaging.getInstance().token.addOnSuccessListener { token ->
+        val userRef = if (isTeacher) {
+            FirebaseDatabase.getInstance().getReference("teachers").child(uid)
+        } else {
+            FirebaseDatabase.getInstance().getReference("users").child(uid)
+        }
+        userRef.child("fcmToken").setValue(token)
+            .addOnSuccessListener {
+                Log.d("FCM", "FCM token saved successfully")
+            }
+            .addOnFailureListener { exception ->
+                Log.e("FCM", "Failed to save FCM token: ${exception.message}")
+            }
+    }
+}
+
 
 @Composable
 fun StyledInput(

@@ -1,6 +1,6 @@
-// StudentDashboard.kt
 package com.example.finalyearproject.ui.screens
 
+import TeacherMessage
 import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.Image
@@ -37,7 +37,6 @@ import java.util.concurrent.TimeUnit
 import androidx.core.content.edit
 import androidx.core.app.NotificationManagerCompat
 
-data class TeacherMessage(val content: String, val date: String)
 
 @Composable
 fun StudentDashboard(navController: NavController) {
@@ -53,45 +52,50 @@ fun StudentDashboard(navController: NavController) {
     val loading = remember { mutableStateOf(true) }
     val showDialog = remember { mutableStateOf(false) }
 
-
-    val teacherMessages = remember {
-        mutableStateListOf(
-            TeacherMessage("Submit your assignment by tomorrow!", "2025-04-06"),
-            TeacherMessage("Project presentations start next week.", "2025-04-05"),
-            TeacherMessage("Guest lecture on AI this Friday.", "2025-04-04"),
-            TeacherMessage("New message posted", "2025-04-13"),
-            TeacherMessage("New message posted", "2025-04-13"),
-            TeacherMessage("New message posted", "2025-04-13"),
-            TeacherMessage("New message posted", "2025-04-13"),
-        )
-    }
-
+    val teacherMessages = remember { mutableStateListOf<TeacherMessage>() }
     val clickedMessages = remember { mutableStateListOf<String>() }
-
-    val sortedMessages = teacherMessages.sortedByDescending {
-        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(it.date)
-    }
 
     val sharedPref = context.getSharedPreferences("notifications", Context.MODE_PRIVATE)
     val hasSeenMessage = sharedPref.getBoolean("message_seen", false)
+
+    fun fetchTeacherMessages() {
+        database.child("messages").addValueEventListener(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                teacherMessages.clear()
+                for (messageSnapshot in snapshot.children) {
+                    val content = messageSnapshot.child("content").getValue(String::class.java).orEmpty()
+                    val date = messageSnapshot.child("date").getValue(String::class.java).orEmpty()
+                    if (content.isNotEmpty() && date.isNotEmpty()) {
+                        teacherMessages.add(TeacherMessage(content, date))
+                    }
+                }
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                Toast.makeText(context, "Error loading messages: ${error.message}", Toast.LENGTH_SHORT).show()
+            }
+        })
+    }
 
     LaunchedEffect(Unit) {
         if (uid != null) {
             database.child("users").child(uid).addListenerForSingleValueEvent(object : ValueEventListener {
                 override fun onDataChange(snapshot: DataSnapshot) {
-                    name.value = snapshot.child("name").getValue(String::class.java) ?: ""
-                    auid.value = snapshot.child("auid").getValue(String::class.java) ?: ""
-                    section.value = snapshot.child("section").getValue(String::class.java) ?: ""
-                    batch.value = snapshot.child("batch").getValue(String::class.java) ?: ""
+                    name.value = snapshot.child("name").getValue(String::class.java).orEmpty()
+                    auid.value = snapshot.child("auid").getValue(String::class.java).orEmpty()
+                    section.value = snapshot.child("section").getValue(String::class.java).orEmpty()
+                    batch.value = snapshot.child("batch").getValue(String::class.java).orEmpty()
                     loading.value = false
                 }
 
                 override fun onCancelled(error: DatabaseError) {
-                    Toast.makeText(context, "Failed to load data", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Error loading user: ${error.message}", Toast.LENGTH_SHORT).show()
                     loading.value = false
                 }
             })
         }
+
+        fetchTeacherMessages()
 
         if (!hasSeenMessage) {
             val workRequest = PeriodicWorkRequestBuilder<NotificationWorker>(1, TimeUnit.HOURS).build()
@@ -136,8 +140,7 @@ fun StudentDashboard(navController: NavController) {
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(220.dp)
-                        .align(Alignment.CenterHorizontally),
+                        .height(220.dp),
                     shape = RoundedCornerShape(30.dp),
                     colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.95f)),
                     elevation = CardDefaults.cardElevation(8.dp)
@@ -161,7 +164,6 @@ fun StudentDashboard(navController: NavController) {
                             color = Color.Gray,
                             textAlign = TextAlign.Center
                         )
-
                         Spacer(modifier = Modifier.height(8.dp))
 
                         Row(
@@ -178,26 +180,10 @@ fun StudentDashboard(navController: NavController) {
                             )
 
                             Column(horizontalAlignment = Alignment.Start) {
-                                Text(
-                                    "Name: ${name.value}",
-                                    fontSize = 18.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    "AUID: ${auid.value}",
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    "Batch: ${batch.value}",
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    "Section: ${section.value}",
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
+                                Text("Name: ${name.value}", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                                Text("AUID: ${auid.value}", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                Text("Batch: ${batch.value}", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                Text("Section: ${section.value}", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -214,15 +200,19 @@ fun StudentDashboard(navController: NavController) {
 
                 Spacer(modifier = Modifier.height(10.dp))
 
+                val sdf = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) }
+
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxHeight()
                         .padding(bottom = 80.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    contentPadding = PaddingValues(top = 10.dp)
                 ) {
-                    items(sortedMessages) { msg ->
-                        val isClicked =
-                            remember { mutableStateOf(clickedMessages.contains(msg.content)) }
+                    items(teacherMessages.sortedByDescending {
+                        runCatching { sdf.parse(it.date) }.getOrNull() ?: Date(0)
+                    }) { msg ->
+                        val isClicked = remember { mutableStateOf(clickedMessages.contains(msg.content)) }
 
                         Card(
                             modifier = Modifier
@@ -233,8 +223,7 @@ fun StudentDashboard(navController: NavController) {
                                         clickedMessages.add(msg.content)
                                         sharedPref.edit { putBoolean("message_seen", true) }
                                         NotificationManagerCompat.from(context).cancel(1)
-                                        WorkManager.getInstance(context)
-                                            .cancelUniqueWork("TeacherMessageWorker")
+                                        WorkManager.getInstance(context).cancelUniqueWork("TeacherMessageWorker")
                                     }
                                 },
                             colors = CardDefaults.cardColors(
@@ -247,31 +236,26 @@ fun StudentDashboard(navController: NavController) {
                             Column(modifier = Modifier.padding(16.dp)) {
                                 Text(text = msg.content, fontSize = 16.sp, color = Color.Black)
                                 Spacer(modifier = Modifier.height(6.dp))
-                                Text(
-                                    text = "Date: ${msg.date}",
-                                    fontSize = 12.sp,
-                                    color = Color.Gray
-                                )
+                                Text(text = "Date: ${msg.date}", fontSize = 12.sp, color = Color.Gray)
                             }
                         }
                     }
                 }
             }
         }
-// Bottom Navigation stretched across the entire bottom evenly
+
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 12.dp)
                 .align(Alignment.BottomCenter),
-            horizontalArrangement = Arrangement.SpaceBetween, // Perfect even spread
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             @Composable
             fun navItem(icon: Int, label: String, onClick: () -> Unit) {
                 Column(
-                    modifier = Modifier
-                        .clickable(onClick = onClick),
+                    modifier = Modifier.clickable(onClick = onClick),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Icon(
@@ -290,23 +274,11 @@ fun StudentDashboard(navController: NavController) {
                 }
             }
 
-            navItem(R.drawable.eca, "ECA") {
-                Toast.makeText(context, "ECA", Toast.LENGTH_SHORT).show()
-                navController.navigate("ECA")
-            }
-
-            navItem(R.drawable.leave, "leave") {
-                Toast.makeText(context, "Leave", Toast.LENGTH_SHORT).show()
-                navController.navigate("leave")
-            }
-
-            navItem(R.drawable.certificate, "Certs") {
-                Toast.makeText(context, "Certs", Toast.LENGTH_SHORT).show()
-                navController.navigate("Certificates")
-            }
+            navItem(R.drawable.eca, "ECA") { navController.navigate("ECA") }
+            navItem(R.drawable.leave, "Leave") { navController.navigate("leave") }
+            navItem(R.drawable.certificate, "Certs") { navController.navigate("Certificates") }
             navItem(R.drawable.timetable, "Timetable") { navController.navigate("timetable") }
         }
-
 
         if (showDialog.value) {
             AlertDialog(

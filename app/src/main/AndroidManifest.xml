@@ -29,6 +29,14 @@
             </intent-filter>
         </activity>
 
+        <!-- ✅ Add This Service for Firebase Messaging -->
+        <service
+            android:name=".ui.screens.MyFirebaseMessagingService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
 
     </application>
 
