@@ -277,7 +277,7 @@ fun StudentDashboard(navController: NavController) {
             navItem(R.drawable.eca, "ECA") { navController.navigate("ECA") }
             navItem(R.drawable.leave, "Leave") { navController.navigate("leave") }
             navItem(R.drawable.certificate, "Certs") { navController.navigate("Certificates") }
-            navItem(R.drawable.timetable, "Timetable") { navController.navigate("timetable") }
+            navItem(R.drawable.timetable, "TimetableTable") { navController.navigate("StudentTimeTable") }
         }
 
         if (showDialog.value) {

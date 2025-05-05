@@ -303,7 +303,7 @@ fun TeacherDashboard(navController: NavController) {
             }
 
             navItem(R.drawable.certificate, "Certs") { navController.navigate("TeacherCertificates") }
-            navItem(R.drawable.timetable, "Timetable") { navController.navigate("timetable") }
+            navItem(R.drawable.timetable, "TeacherTimetable") { navController.navigate("TeacherTimetable") }
             navItem(R.drawable.eca, "StudentDetained") { navController.navigate("Detained") }
         }
 

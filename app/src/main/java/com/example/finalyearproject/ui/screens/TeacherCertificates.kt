@@ -19,8 +19,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.google.firebase.database.*
-import java.net.URLEncoder
-import androidx.browser.customtabs.CustomTabsIntent
 import java.util.regex.Pattern
 import androidx.core.net.toUri
 
