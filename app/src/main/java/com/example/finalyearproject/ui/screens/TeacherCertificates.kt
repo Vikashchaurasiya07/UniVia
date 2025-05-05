@@ -4,7 +4,6 @@ package com.example.finalyearproject.ui.screens
 
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -21,7 +20,9 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.google.firebase.database.*
 import java.net.URLEncoder
+import androidx.browser.customtabs.CustomTabsIntent
 import java.util.regex.Pattern
+import androidx.core.net.toUri
 
 data class CertificateItem(
     val certificateName: String,
@@ -366,47 +367,30 @@ fun CertificateCard(cert: CertificateItem) {
     }
 }
 
+
 fun openDocument(context: Context, url: String) {
     try {
-        val uri = Uri.parse(url)
+        val fileId = extractFileIdFromUrl(url)
+        val previewUrl = if (fileId != null) {
+            "https://drive.google.com/file/d/$fileId/preview"
+        } else {
+            url // For non-Drive files
+        }
 
-        // Create a basic VIEW intent
-        val baseIntent = Intent(Intent.ACTION_VIEW, uri).apply {
+        val browserIntent = Intent(Intent.ACTION_VIEW, previewUrl.toUri()).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK
-            addCategory(Intent.CATEGORY_BROWSABLE)
+            setPackage("com.android.chrome") // Force Chrome if available
         }
 
-        // For Google Drive links, use the web viewer
-        if (url.contains("drive.google.com")) {
-            val fileId = extractFileIdFromUrl(url)
-            if (fileId != null) {
-                // Try to open with Drive Intent first
-                try {
-                    val driveIntent = Intent(Intent.ACTION_VIEW).apply {
-                        data = Uri.parse("https://drive.google.com/file/d/$fileId/view")
-                        setPackage("com.google.android.apps.docs")
-                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                    }
-                    context.startActivity(driveIntent)
-                    return
-                } catch (e: Exception) {
-                    // Fall through to web viewer if Drive app fails
-                }
-
-                // Fallback to web viewer
-                val webViewerUrl = "https://docs.google.com/viewer?url=${URLEncoder.encode(url, "UTF-8")}"
-                val webIntent = Intent(Intent.ACTION_VIEW, Uri.parse(webViewerUrl)).apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                    setPackage(null) // Let user choose browser
-                }
-                context.startActivity(webIntent)
-                return
+        try {
+            context.startActivity(browserIntent)
+        } catch (e: Exception) {
+            // Fallback to any browser
+            val fallbackIntent = Intent(Intent.ACTION_VIEW, previewUrl.toUri()).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
             }
+            context.startActivity(fallbackIntent)
         }
-
-        // For non-Drive links or if all else fails
-        val chooserIntent = Intent.createChooser(baseIntent, "Open document with")
-        context.startActivity(chooserIntent)
 
     } catch (e: Exception) {
         Toast.makeText(
@@ -416,6 +400,9 @@ fun openDocument(context: Context, url: String) {
         ).show()
     }
 }
+
+
+
 
 private fun extractFileIdFromUrl(url: String): String? {
     val patterns = listOf(
