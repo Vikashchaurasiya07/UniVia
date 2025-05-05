@@ -20,7 +20,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.google.firebase.database.DataSnapshot
+import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.database.ValueEventListener
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -50,6 +53,30 @@ fun TeacherTimetable(navController: NavController ) {
 
     val calendar = Calendar.getInstance()
     val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+
+    LaunchedEffect(Unit) {
+        database.addValueEventListener(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val loadedData = mutableMapOf<String, MutableList<ExamData>>()
+                snapshot.children.forEach { titleSnapshot ->
+                    val title = titleSnapshot.key ?: ""
+                    val exams = mutableListOf<ExamData>()
+                    titleSnapshot.children.forEach { examSnapshot ->
+                        examSnapshot.getValue(ExamData::class.java)?.let { exams.add(it) }
+                    }
+                    if (title.isNotEmpty() && exams.isNotEmpty()) {
+                        loadedData[title] = exams
+                    }
+                }
+                allExamSets.clear()
+                allExamSets.putAll(loadedData)
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                Toast.makeText(context, "Failed to load timetable", Toast.LENGTH_SHORT).show()
+            }
+        })
+    }
 
     fun openDatePicker() {
         DatePickerDialog(
