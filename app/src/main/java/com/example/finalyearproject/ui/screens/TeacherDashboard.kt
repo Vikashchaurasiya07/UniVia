@@ -258,14 +258,53 @@ fun TeacherDashboard(navController: NavController) {
             onClick = { showPostDialog.value = true },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(16.dp),
-            containerColor = Color(0xFFBA68C8)
+                .padding(bottom = 72.dp) // Changed from 16.dp to 72.dp
+                .offset(y = (-16).dp),   // Added offset to move up
+            containerColor = Color(0xFF7E57C2),
         ) {
             Icon(
                 painter = painterResource(id = R.drawable.add),
                 contentDescription = "Add Notification",
                 tint = Color.White
             )
+        }
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .align(Alignment.BottomCenter),
+            horizontalArrangement = Arrangement.SpaceBetween, // Changed from SpaceBetween
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            @Composable
+            fun navItem(icon: Int, label: String, onClick: () -> Unit) {
+                Column(
+                    modifier = Modifier
+                        .clickable(onClick = onClick)
+                        .width(80.dp), // Added fixed width for equal spacing
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Icon(
+                        painter = painterResource(id = icon),
+                        contentDescription = label,
+                        tint = Color(0xFF7E57C2),
+                        modifier = Modifier.size(28.dp)
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = label,
+                        fontSize = 12.sp,
+                        color = Color(0xFF7E57C2),
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center // Added for better text alignment
+                    )
+                }
+            }
+
+            navItem(R.drawable.certificate, "Certs") { navController.navigate("TeacherCertificates") }
+            navItem(R.drawable.timetable, "Timetable") { navController.navigate("timetable") }
+            navItem(R.drawable.eca, "StudentDetained") { navController.navigate("Detained") }
         }
 
         // Logout Dialog

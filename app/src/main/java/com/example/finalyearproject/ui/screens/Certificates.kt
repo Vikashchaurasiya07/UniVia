@@ -1,8 +1,8 @@
 package com.example.finalyearproject.ui.screens
 
-
 import android.content.Context
 import android.net.Uri
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -41,6 +41,9 @@ fun Certificates(navController: NavController) {
     var fileName by remember { mutableStateOf("") }
     var isUploading by remember { mutableStateOf(false) }
     var uploadProgress by remember { mutableStateOf(0) }
+    var semester by remember { mutableStateOf("") }
+    var section by remember { mutableStateOf("") }
+    var semesterError by remember { mutableStateOf("") }
 
     val userId = FirebaseAuth.getInstance().currentUser?.uid
     val animatedProgress by animateFloatAsState(
@@ -84,6 +87,31 @@ fun Certificates(navController: NavController) {
 
                 Spacer(modifier = Modifier.height(16.dp))
 
+                OutlinedTextField(
+                    value = semester,
+                    onValueChange = {
+                        semester = it
+                        semesterError = "" // Clear error when the user is typing
+                    },
+                    label = { Text("Semester (1-8)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    isError = semesterError.isNotEmpty()
+                )
+                if (semesterError.isNotEmpty()) {
+                    Text(semesterError, color = Color.Red, fontSize = 12.sp)
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                OutlinedTextField(
+                    value = section,
+                    onValueChange = { section = it },
+                    label = { Text("Section") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
                 if (selectedUri == null) {
                     Button(onClick = { launcher.launch("application/pdf") }) {
                         Text("Attach Certificate Document")
@@ -115,29 +143,38 @@ fun Certificates(navController: NavController) {
 
                 Button(
                     onClick = {
-                        if (userId != null && certificateName.isNotBlank() && selectedUri != null) {
-                            isUploading = true
-                            uploadProgress = 0
-
-                            uploadCertificateDocument(
-                                context = context,
-                                uri = selectedUri!!,
-                                fileName = "Certificate_${certificateName}.pdf",
-                                onProgress = { progress -> uploadProgress = progress },
-                                onSuccess = { fileUrl ->
-                                    saveCertificateToFirebase(certificateName, fileUrl, userId, context)
-                                    certificateName = ""
-                                    selectedUri = null
-                                    fileName = ""
-                                    isUploading = false
-                                },
-                                onFailure = {
-                                    Toast.makeText(context, "Upload failed", Toast.LENGTH_SHORT).show()
-                                    isUploading = false
-                                }
-                            )
+                        // Semester validation
+                        if (semester.toIntOrNull() !in 1..8) {
+                            semesterError = "Please enter a valid semester (1-8)"
+                        } else if (section.isBlank()) {
+                            Toast.makeText(context, "Section is required", Toast.LENGTH_SHORT).show()
                         } else {
-                            Toast.makeText(context, "Please fill all fields", Toast.LENGTH_SHORT).show()
+                            semesterError = "" // Clear error
+
+                            if (userId != null && certificateName.isNotBlank() && selectedUri != null) {
+                                isUploading = true
+                                uploadProgress = 0
+
+                                uploadCertificateDocument(
+                                    context = context,
+                                    uri = selectedUri!!,
+                                    fileName = "Certificate_${certificateName}.pdf",
+                                    onProgress = { progress -> uploadProgress = progress },
+                                    onSuccess = { fileUrl ->
+                                        saveCertificateToFirebase(certificateName, fileUrl, userId, semester, section, context)
+                                        certificateName = ""
+                                        selectedUri = null
+                                        fileName = ""
+                                        isUploading = false
+                                    },
+                                    onFailure = {
+                                        Toast.makeText(context, "Upload failed", Toast.LENGTH_SHORT).show()
+                                        isUploading = false
+                                    }
+                                )
+                            } else {
+                                Toast.makeText(context, "Please fill all fields", Toast.LENGTH_SHORT).show()
+                            }
                         }
                     },
                     enabled = !isUploading
@@ -209,22 +246,31 @@ fun uploadCertificateDocument(
     }
 }
 
-// Save certificate name + file URL to Firebase
-fun saveCertificateToFirebase(certificateName: String, fileUrl: String, userId: String, context: Context) {
-    val database = FirebaseDatabase.getInstance().reference
-    val certificatesRef = database.child("course").child(userId).push()
-
-    val data = mapOf(
-        "certificateName" to certificateName,
-        "documentUrl" to fileUrl,
+fun saveCertificateToFirebase(
+    courseTitle: String,
+    driveLink: String,
+    userId: String,
+    semester: String,
+    section: String,
+    context: Context
+) {
+    val db = FirebaseDatabase.getInstance().reference
+    val certificateData = mapOf(
+        "certificateName" to courseTitle,
+        "documentUrl" to driveLink,
+        "semester" to semester,
+        "section" to section,
         "timestamp" to System.currentTimeMillis()
     )
 
-    certificatesRef.setValue(data)
+    // Save to the correct path: certificates/{userId}/course/
+    db.child("certificates").child(userId).child("course").push()
+        .setValue(certificateData)
         .addOnSuccessListener {
-            Toast.makeText(context, "Certificate submitted successfully!", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Course certificate uploaded successfully", Toast.LENGTH_SHORT).show()
         }
-        .addOnFailureListener {
-            Toast.makeText(context, "Failed to save certificate data", Toast.LENGTH_SHORT).show()
+        .addOnFailureListener { e ->
+            Toast.makeText(context, "Failed to upload course certificate: ${e.message}", Toast.LENGTH_SHORT).show()
+            Log.e("COURSE_CERT", "Failed to upload certificate", e)
         }
 }

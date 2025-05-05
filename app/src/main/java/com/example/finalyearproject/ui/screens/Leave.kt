@@ -2,6 +2,7 @@ package com.example.finalyearproject.ui.screens
 
 import android.content.Context
 import android.net.Uri
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -41,6 +42,8 @@ fun leave(navController: NavController) {
     var fileName by remember { mutableStateOf("") }
     var isUploading by remember { mutableStateOf(false) }
     var uploadProgress by remember { mutableStateOf(0) }
+    var semester by remember { mutableStateOf("") }
+    var section by remember { mutableStateOf("") }
 
     val userId = FirebaseAuth.getInstance().currentUser?.uid
     val animatedProgress by animateFloatAsState(
@@ -84,6 +87,32 @@ fun leave(navController: NavController) {
 
                 Spacer(modifier = Modifier.height(16.dp))
 
+                OutlinedTextField(
+                    value = semester,
+                    onValueChange = { semester = it },
+                    label = { Text("Semester (1 to 8)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    isError = semester.toIntOrNull() !in 1..8
+                )
+                if (semester.toIntOrNull() !in 1..8) {
+                    Text(
+                        text = "Semester must be between 1 and 8",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                OutlinedTextField(
+                    value = section,
+                    onValueChange = { section = it },
+                    label = { Text("Section") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
                 if (selectedUri == null) {
                     Button(onClick = { launcher.launch("application/pdf") }) {
                         Text("Attach Leave Document")
@@ -115,7 +144,9 @@ fun leave(navController: NavController) {
 
                 Button(
                     onClick = {
-                        if (userId != null && reason.isNotBlank() && selectedUri != null) {
+                        if (userId != null && reason.isNotBlank() && semester.isNotBlank() &&
+                            section.isNotBlank() && selectedUri != null && semester.toIntOrNull() in 1..8
+                        ) {
                             isUploading = true
                             uploadProgress = 0
 
@@ -125,8 +156,10 @@ fun leave(navController: NavController) {
                                 fileName = "Leave_${reason}.pdf",
                                 onProgress = { progress -> uploadProgress = progress },
                                 onSuccess = { fileUrl ->
-                                    saveLeaveRequestToFirebase(reason, fileUrl, userId, context)
+                                    saveLeaveRequestToFirebase(reason, fileUrl, semester, section, userId, context)
                                     reason = ""
+                                    semester = ""
+                                    section = ""
                                     selectedUri = null
                                     fileName = ""
                                     isUploading = false
@@ -137,7 +170,7 @@ fun leave(navController: NavController) {
                                 }
                             )
                         } else {
-                            Toast.makeText(context, "Please fill all fields", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Please fill all fields correctly", Toast.LENGTH_SHORT).show()
                         }
                     },
                     enabled = !isUploading
@@ -156,7 +189,6 @@ fun leave(navController: NavController) {
     }
 }
 
-// Upload to Google Drive using Service Account
 // Upload to Google Drive using Service Account
 fun uploadLeaveDocument(
     context: Context,
@@ -212,25 +244,31 @@ fun uploadLeaveDocument(
     }
 }
 
-// Save leave reason + file URL to Firebase
-fun saveLeaveRequestToFirebase(reason: String, fileUrl: String, userId: String, context: Context) {
-    val database = FirebaseDatabase.getInstance().reference
-    val leaveRef = database.child("leaveRequests").child(userId).push()
-
-    val data = mapOf(
+fun saveLeaveRequestToFirebase(
+    reason: String,
+    fileUrl: String,
+    semester: String,
+    section: String,
+    userId: String,
+    context: Context
+) {
+    val db = FirebaseDatabase.getInstance().reference
+    val leaveData = mapOf(
         "reason" to reason,
         "documentUrl" to fileUrl,
+        "semester" to semester,
+        "section" to section,
         "timestamp" to System.currentTimeMillis()
     )
 
-    leaveRef.setValue(data)
+    // Save to: leaveRequests/{userId}/
+    db.child("certificates").child(userId).child("leave").push()
+        .setValue(leaveData)
         .addOnSuccessListener {
-            Toast.makeText(context, "Leave submitted successfully!", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Leave request uploaded successfully", Toast.LENGTH_SHORT).show()
         }
-        .addOnFailureListener { exception ->
-            exception.printStackTrace() // Log the error
-            Toast.makeText(context, "Failed to save leave data: ${exception.message}", Toast.LENGTH_SHORT).show()
+        .addOnFailureListener { e ->
+            Toast.makeText(context, "Failed to upload leave request: ${e.message}", Toast.LENGTH_SHORT).show()
+            Log.e("LEAVE_REQUEST", "Failed to upload leave request", e)
         }
 }
-
-

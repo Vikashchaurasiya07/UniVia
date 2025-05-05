@@ -3,6 +3,7 @@ package com.example.finalyearproject.ui.screens
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -40,10 +41,13 @@ import kotlinx.coroutines.withContext
 fun ECA(navController: NavController) {
     val context = LocalContext.current
     var courseTitle by remember { mutableStateOf("") }
+    var semester by remember { mutableStateOf("") }
+    var section by remember { mutableStateOf("") }
     var selectedUri by remember { mutableStateOf<Uri?>(null) }
     var fileName by remember { mutableStateOf("") }
     var isUploading by remember { mutableStateOf(false) }
     var uploadProgress by remember { mutableStateOf(0) }
+    var errorMessage by remember { mutableStateOf("") }
 
     val userId = FirebaseAuth.getInstance().currentUser?.uid
     val coroutineScope = rememberCoroutineScope()
@@ -90,6 +94,44 @@ fun ECA(navController: NavController) {
 
                 Spacer(modifier = Modifier.height(16.dp))
 
+                OutlinedTextField(
+                    value = semester,
+                    onValueChange = { semester = it },
+                    label = { Text("Semester (1-8)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    isError = semester.toIntOrNull() !in 1..8
+                )
+                if (semester.toIntOrNull() !in 1..8) {
+                    Text(
+                        text = "Please fill the details correctly",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.fillMaxWidth(),
+                        fontSize = 12.sp
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                OutlinedTextField(
+                    value = section,
+                    onValueChange = { section = it },
+                    label = { Text("Section") },
+                    modifier = Modifier.fillMaxWidth(),
+                    isError = section.isBlank()
+                )
+                if (section.isBlank()) {
+                    Text(
+                        text = "Section is required",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.fillMaxWidth(),
+                        fontSize = 12.sp
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
                 if (selectedUri == null) {
                     Button(onClick = { launcher.launch("application/pdf") }) {
                         Text("Attach ECA Certificate")
@@ -121,25 +163,32 @@ fun ECA(navController: NavController) {
 
                 Button(
                     onClick = {
-                        if (userId != null && courseTitle.isNotBlank() && selectedUri != null) {
+                        if (userId != null && courseTitle.isNotBlank() && selectedUri != null && semester.toIntOrNull() in 1..8 && section.isNotBlank()) {
                             isUploading = true
                             coroutineScope.launch {
                                 val uploadedUrl = uploadToDriveUsingServiceAccount(
                                     courseTitle, selectedUri!!, context
-                                ) { progress ->
-                                    uploadProgress = progress
-                                }
+                                ) { progress -> uploadProgress = progress }
 
                                 if (uploadedUrl != null) {
-                                    saveCertificateLinkToFirebase(courseTitle, uploadedUrl, context)
+                                    saveCertificateLinkToFirebase(
+                                        courseTitle,
+                                        uploadedUrl,
+                                        userId,
+                                        semester,
+                                        section,
+                                        context
+                                    )
                                     selectedUri = null
                                     fileName = ""
                                     courseTitle = ""
+                                    semester = ""
+                                    section = ""
                                 }
                                 isUploading = false
                             }
                         } else {
-                            Toast.makeText(context, "Please fill all fields", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Please fill all fields correctly", Toast.LENGTH_SHORT).show()
                         }
                     },
                     enabled = !isUploading
@@ -191,7 +240,6 @@ suspend fun uploadToDriveUsingServiceAccount(
 
         val folderId = "1zBESOEYxnwCBOrjd6V35r4cc60qedbZS"
 
-        // Read the file as ByteArray for accurate size and safe reuse
         val inputBytes = context.contentResolver.openInputStream(uri)?.readBytes()
         val inputStream = inputBytes?.inputStream()
         val fileSize = inputBytes?.size ?: 1
@@ -227,16 +275,30 @@ suspend fun uploadToDriveUsingServiceAccount(
     }
 }
 
-fun saveCertificateLinkToFirebase(courseTitle: String, driveLink: String, context: Context) {
-    val userId = FirebaseAuth.getInstance().currentUser?.uid
-    if (userId != null) {
-        val db = FirebaseDatabase.getInstance().reference
-        db.child("certificates").child(userId).child(courseTitle).setValue(driveLink)
-            .addOnSuccessListener {
-                Toast.makeText(context, "Certificate uploaded successfully", Toast.LENGTH_SHORT).show()
-            }
-            .addOnFailureListener {
-                Toast.makeText(context, "Failed to save link in Firebase", Toast.LENGTH_SHORT).show()
-            }
-    }
+fun saveCertificateLinkToFirebase(
+    courseTitle: String,
+    driveLink: String,
+    userId: String,
+    semester: String,
+    section: String,
+    context: Context
+) {
+    val db = FirebaseDatabase.getInstance().reference
+    val certificateData = mapOf(
+        "certificateName" to courseTitle,
+        "documentUrl" to driveLink,
+        "semester" to semester,
+        "section" to section,
+        "timestamp" to System.currentTimeMillis()
+    )
+
+    db.child("certificates").child(userId).child("eca").push()
+        .setValue(certificateData)
+        .addOnSuccessListener {
+            Toast.makeText(context, "Certificate uploaded successfully", Toast.LENGTH_SHORT).show()
+        }
+        .addOnFailureListener { e ->
+            Toast.makeText(context, "Failed to save certificate: ${e.message}", Toast.LENGTH_SHORT).show()
+            Log.e("ECA", "Failed to save certificate", e)
+        }
 }

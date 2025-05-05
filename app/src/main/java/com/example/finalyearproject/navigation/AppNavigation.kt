@@ -11,9 +11,10 @@ import com.example.finalyearproject.ui.screens.LoginScreen
 import com.example.finalyearproject.ui.screens.SignupScreen
 import com.example.finalyearproject.ui.screens.ForgotPassword
 import com.example.finalyearproject.ui.screens.StudentDashboard
+import com.example.finalyearproject.ui.screens.TeacherCertificateViewer
 import com.example.finalyearproject.ui.screens.TeacherDashboard
 import com.example.finalyearproject.ui.screens.leave
-import com.google.firebase.auth.FirebaseAuth
+
 
 @Composable
 fun AppNavigation(navController: NavHostController) {
@@ -27,6 +28,7 @@ fun AppNavigation(navController: NavHostController) {
         composable("leave") { leave(navController) }
         composable("certificates") { Certificates(navController) }
         composable ("TeacherDashboard"){ TeacherDashboard(navController)}
+        composable("TeacherCertificates"){TeacherCertificateViewer(navController)}
     }
 }
 
