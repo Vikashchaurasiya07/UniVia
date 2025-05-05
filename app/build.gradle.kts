@@ -92,4 +92,7 @@ dependencies {
     implementation ("androidx.compose.material3:material3:1.3.2")
     implementation ("com.google.firebase:firebase-messaging:24.1.1")
     implementation ("androidx.work:work-runtime-ktx:2.10.1")
+    implementation("com.squareup.okhttp3:okhttp:4.11.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+    implementation ("com.google.android.gms:play-services-drive:17.0.0")
 }

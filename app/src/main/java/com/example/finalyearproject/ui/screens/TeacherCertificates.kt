@@ -2,11 +2,10 @@
 
 package com.example.finalyearproject.ui.screens
 
-import android.app.DownloadManager
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
-import android.os.Environment
-import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -21,6 +20,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.google.firebase.database.*
+import java.net.URLEncoder
+import java.util.regex.Pattern
 
 data class CertificateItem(
     val certificateName: String,
@@ -28,7 +29,7 @@ data class CertificateItem(
     val timestamp: Long,
     val semester: String,
     val section: String,
-    val studentName: String = "Unknown" // Added student name
+    val studentName: String = "Unknown"
 )
 
 @Composable
@@ -38,16 +39,13 @@ fun TeacherCertificateViewer(navController: NavController) {
     var selectedSemester by remember { mutableStateOf<String?>(null) }
     var selectedSection by remember { mutableStateOf<String?>(null) }
 
-    // Changed to match your database format
     val certificateTypes = listOf("eca", "leave", "course")
-    val semesters = listOf("1", "2", "3", "4", "5", "6", "7", "8") // Numbers only
+    val semesters = listOf("1", "2", "3", "4", "5", "6", "7", "8")
     val sections = listOf("A", "B", "C", "D", "E")
 
     var allCertificates by remember { mutableStateOf<List<CertificateItem>>(emptyList()) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
-
-    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
     Scaffold(
         topBar = {
@@ -57,8 +55,7 @@ fun TeacherCertificateViewer(navController: NavController) {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                     }
-                },
-                scrollBehavior = scrollBehavior
+                }
             )
         }
     ) { paddingValues ->
@@ -68,156 +65,198 @@ fun TeacherCertificateViewer(navController: NavController) {
                 .padding(16.dp)
         ) {
             if (selectedType == null) {
-                // Certificate type selection
-                Text("Select Certificate Type", style = MaterialTheme.typography.titleMedium)
-                Spacer(modifier = Modifier.height(16.dp))
-                certificateTypes.forEach { type ->
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp)
-                            .clickable {
-                                selectedType = type
-                                errorMessage = null
-                            },
-                        elevation = CardDefaults.cardElevation(4.dp)
-                    ) {
-                        Box(Modifier.padding(24.dp), contentAlignment = Alignment.Center) {
-                            Text(type.uppercase())
-                        }
-                    }
-                }
+                CertificateTypeSelection(
+                    types = certificateTypes,
+                    onTypeSelected = { selectedType = it }
+                )
             } else {
-                // Semester and section selection
-                Text("Filter Certificates", style = MaterialTheme.typography.titleMedium)
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Semester dropdown
-                var semesterExpanded by remember { mutableStateOf(false) }
-                ExposedDropdownMenuBox(
-                    expanded = semesterExpanded,
-                    onExpandedChange = { semesterExpanded = it }
-                ) {
-                    TextField(
-                        value = selectedSemester ?: "",
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Select Semester") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(semesterExpanded) },
-                        modifier = Modifier.menuAnchor().fillMaxWidth()
-                    )
-                    ExposedDropdownMenu(
-                        expanded = semesterExpanded,
-                        onDismissRequest = { semesterExpanded = false }
-                    ) {
-                        semesters.forEach { semester ->
-                            DropdownMenuItem(
-                                text = { Text("Semester $semester") },
-                                onClick = {
-                                    selectedSemester = semester
-                                    semesterExpanded = false
-                                    errorMessage = null
-                                }
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Section dropdown
-                var sectionExpanded by remember { mutableStateOf(false) }
-                ExposedDropdownMenuBox(
-                    expanded = sectionExpanded,
-                    onExpandedChange = { sectionExpanded = it }
-                ) {
-                    TextField(
-                        value = selectedSection ?: "",
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Select Section") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(sectionExpanded) },
-                        modifier = Modifier.menuAnchor().fillMaxWidth()
-                    )
-                    ExposedDropdownMenu(
-                        expanded = sectionExpanded,
-                        onDismissRequest = { sectionExpanded = false }
-                    ) {
-                        sections.forEach { section ->
-                            DropdownMenuItem(
-                                text = { Text("Section $section") },
-                                onClick = {
-                                    selectedSection = section
-                                    sectionExpanded = false
-                                    errorMessage = null
-                                }
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
+                CertificateFilterSection(
+                    semesters = semesters,
+                    sections = sections,
+                    selectedSemester = selectedSemester,
+                    selectedSection = selectedSection,
+                    onSemesterSelected = { selectedSemester = it },
+                    onSectionSelected = { selectedSection = it },
+                    onBack = { selectedType = null }
+                )
 
                 if (selectedSemester != null && selectedSection != null) {
-                    LaunchedEffect(selectedType, selectedSemester, selectedSection) {
-                        isLoading = true
-                        errorMessage = null
-                        fetchCertificatesFiltered(
-                            selectedType!!,
-                            selectedSemester!!,
-                            selectedSection!!,
-                            onSuccess = { certs ->
-                                allCertificates = certs
-                                if (certs.isEmpty()) {
-                                    errorMessage = "No ${selectedType!!.uppercase()} certificates found for Semester ${selectedSemester}, Section ${selectedSection}"
-                                }
-                                isLoading = false
-                            },
-                            onError = { message ->
-                                errorMessage = message
-                                isLoading = false
-                            }
-                        )
-                    }
-
-                    if (isLoading) {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator()
+                    CertificateListSection(
+                        type = selectedType!!,
+                        semester = selectedSemester!!,
+                        section = selectedSection!!,
+                        onFetchCertificates = { type, semester, section, onSuccess, onError ->
+                            fetchCertificatesFiltered(type, semester, section, onSuccess, onError)
                         }
-                    } else {
-                        errorMessage?.let { message ->
-                            Text(
-                                text = message,
-                                color = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.padding(vertical = 8.dp)
-                            )
-                        }
-
-                        if (allCertificates.isNotEmpty()) {
-                            LazyColumn {
-                                items(allCertificates.sortedByDescending { it.timestamp }) { cert ->
-                                    CertificateCard(cert) {
-                                        downloadFile(context, cert.documentUrl, cert.certificateName)
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    )
                 }
+            }
+        }
+    }
+}
 
-                // Back button
-                Spacer(modifier = Modifier.height(16.dp))
-                Button(
-                    onClick = {
-                        selectedType = null
-                        selectedSemester = null
-                        selectedSection = null
-                        allCertificates = emptyList()
-                        errorMessage = null
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Back to Types")
+@Composable
+private fun CertificateTypeSelection(
+    types: List<String>,
+    onTypeSelected: (String) -> Unit
+) {
+    Column {
+        Text("Select Certificate Type", style = MaterialTheme.typography.titleMedium)
+        Spacer(modifier = Modifier.height(16.dp))
+        types.forEach { type ->
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp)
+                    .clickable { onTypeSelected(type) },
+                elevation = CardDefaults.cardElevation(4.dp)
+            ) {
+                Box(Modifier.padding(24.dp), contentAlignment = Alignment.Center) {
+                    Text(type.uppercase())
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CertificateFilterSection(
+    semesters: List<String>,
+    sections: List<String>,
+    selectedSemester: String?,
+    selectedSection: String?,
+    onSemesterSelected: (String) -> Unit,
+    onSectionSelected: (String) -> Unit,
+    onBack: () -> Unit
+) {
+    Column {
+        Text("Filter Certificates", style = MaterialTheme.typography.titleMedium)
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Semester dropdown
+        var semesterExpanded by remember { mutableStateOf(false) }
+        ExposedDropdownMenuBox(
+            expanded = semesterExpanded,
+            onExpandedChange = { semesterExpanded = it }
+        ) {
+            TextField(
+                value = selectedSemester?.let { "Semester $it" } ?: "",
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Select Semester") },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(semesterExpanded) },
+                modifier = Modifier.menuAnchor().fillMaxWidth()
+            )
+            ExposedDropdownMenu(
+                expanded = semesterExpanded,
+                onDismissRequest = { semesterExpanded = false }
+            ) {
+                semesters.forEach { semester ->
+                    DropdownMenuItem(
+                        text = { Text("Semester $semester") },
+                        onClick = {
+                            onSemesterSelected(semester)
+                            semesterExpanded = false
+                        }
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Section dropdown
+        var sectionExpanded by remember { mutableStateOf(false) }
+        ExposedDropdownMenuBox(
+            expanded = sectionExpanded,
+            onExpandedChange = { sectionExpanded = it }
+        ) {
+            TextField(
+                value = selectedSection?.let { "Section $it" } ?: "",
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Select Section") },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(sectionExpanded) },
+                modifier = Modifier.menuAnchor().fillMaxWidth()
+            )
+            ExposedDropdownMenu(
+                expanded = sectionExpanded,
+                onDismissRequest = { sectionExpanded = false }
+            ) {
+                sections.forEach { section ->
+                    DropdownMenuItem(
+                        text = { Text("Section $section") },
+                        onClick = {
+                            onSectionSelected(section)
+                            sectionExpanded = false
+                        }
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+        Button(
+            onClick = onBack,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Back to Types")
+        }
+    }
+}
+
+@Composable
+private fun CertificateListSection(
+    type: String,
+    semester: String,
+    section: String,
+    onFetchCertificates: (
+        type: String,
+        semester: String,
+        section: String,
+        onSuccess: (List<CertificateItem>) -> Unit,
+        onError: (String) -> Unit
+    ) -> Unit
+) {
+    var certificates by remember { mutableStateOf<List<CertificateItem>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(type, semester, section) {
+        isLoading = true
+        errorMessage = null
+        onFetchCertificates(type, semester, section,
+            { certs ->
+                certificates = certs
+                if (certs.isEmpty()) {
+                    errorMessage = "No ${type.uppercase()} certificates found for Semester $semester, Section $section"
+                }
+                isLoading = false
+            },
+            { message ->
+                errorMessage = message
+                isLoading = false
+            }
+        )
+    }
+
+    if (isLoading) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+    } else {
+        errorMessage?.let { message ->
+            Text(
+                text = message,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(vertical = 8.dp)
+            )
+        }
+
+        if (certificates.isNotEmpty()) {
+            LazyColumn {
+                items(certificates.sortedByDescending { it.timestamp }) { cert ->
+                    CertificateCard(cert)
                 }
             }
         }
@@ -236,9 +275,8 @@ private fun fetchCertificatesFiltered(
 
     usersRef.addListenerForSingleValueEvent(object : ValueEventListener {
         override fun onDataChange(usersSnapshot: DataSnapshot) {
-            val userMap = mutableMapOf<String, String>() // userID to name
+            val userMap = mutableMapOf<String, String>()
 
-            // First get all users in the selected section
             for (user in usersSnapshot.children) {
                 val userSection = user.child("section").getValue(String::class.java) ?: ""
                 if (userSection.equals(section, ignoreCase = true)) {
@@ -266,19 +304,11 @@ private fun fetchCertificatesFiltered(
                             if (certSemester != semester) continue
 
                             val name = cert.child("certificateName").getValue(String::class.java) ?: "Unnamed"
-                            val url = cert.child("documentUrl").getValue(String::class.java) ?: continue
-                            val timestamp = cert.child("timestamp").getValue(Long::class.java) ?: 0L
-                            val certSection = cert.child("section").getValue(String::class.java) ?: section
+                            val url = cert.child("documentUrl").getValue(String::class.java) ?: ""
+                            val timestamp = cert.child("timestamp").getValue(Long::class.java) ?: System.currentTimeMillis()
 
                             result.add(
-                                CertificateItem(
-                                    certificateName = name,
-                                    documentUrl = url,
-                                    timestamp = timestamp,
-                                    semester = certSemester,
-                                    section = certSection,
-                                    studentName = userName
-                                )
+                                CertificateItem(name, url, timestamp, certSemester, section, userName)
                             )
                         }
                     }
@@ -299,52 +329,106 @@ private fun fetchCertificatesFiltered(
 }
 
 @Composable
-fun CertificateCard(cert: CertificateItem, onClick: () -> Unit) {
+fun CertificateCard(cert: CertificateItem) {
+    val context = LocalContext.current
+    var status by remember { mutableStateOf<String?>(null) }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 6.dp)
-            .clickable { onClick() },
+            .padding(vertical = 6.dp),
         elevation = CardDefaults.cardElevation(4.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(cert.studentName, style = MaterialTheme.typography.titleMedium)
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(cert.certificateName, style = MaterialTheme.typography.bodyLarge)
-            Spacer(modifier = Modifier.height(4.dp))
-            Text("Semester: ${cert.semester} | Section: ${cert.section}")
-        }
-    }
-}
-
-private fun downloadFile(context: Context, url: String, fileName: String) {
-    try {
-        val directUrl = convertGoogleDriveUrlToDirect(url)
-        val request = DownloadManager.Request(Uri.parse(directUrl)).apply {
-            setTitle("Downloading $fileName")
-            setDescription("Certificate download in progress")
-            setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-            setDestinationInExternalPublicDir(
-                Environment.DIRECTORY_DOWNLOADS,
-                "Certificates/${fileName.trim().replace(" ", "_")}.pdf"
+            Text(
+                text = cert.certificateName,
+                style = MaterialTheme.typography.titleLarge
             )
-            setAllowedOverMetered(true)
-            setAllowedOverRoaming(true)
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(text = "Uploaded by: ${cert.studentName}")
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(text = "Semester: ${cert.semester}, Section: ${cert.section}")
+            Spacer(modifier = Modifier.height(8.dp))
+            Button(
+                onClick = {
+                    status = "Opening document..."
+                    openDocument(context, cert.documentUrl)
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("View Certificate")
+            }
+
+            status?.let {
+                Text(text = it, color = MaterialTheme.colorScheme.secondary)
+            }
         }
-        val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-        manager.enqueue(request)
-    } catch (e: Exception) {
-        Log.e("CertificateDownload", "Error downloading file", e)
     }
 }
 
-private fun convertGoogleDriveUrlToDirect(url: String): String {
-    val regex = Regex("""https://drive\.google\.com/file/d/([a-zA-Z0-9_-]+)/?.*""")
-    val matchResult = regex.find(url)
-    val fileId = matchResult?.groups?.get(1)?.value
-    return if (fileId != null) {
-        "https://drive.google.com/uc?export=download&id=$fileId"
-    } else {
-        url // fallback, if it's already direct
+fun openDocument(context: Context, url: String) {
+    try {
+        val uri = Uri.parse(url)
+
+        // Create a basic VIEW intent
+        val baseIntent = Intent(Intent.ACTION_VIEW, uri).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            addCategory(Intent.CATEGORY_BROWSABLE)
+        }
+
+        // For Google Drive links, use the web viewer
+        if (url.contains("drive.google.com")) {
+            val fileId = extractFileIdFromUrl(url)
+            if (fileId != null) {
+                // Try to open with Drive Intent first
+                try {
+                    val driveIntent = Intent(Intent.ACTION_VIEW).apply {
+                        data = Uri.parse("https://drive.google.com/file/d/$fileId/view")
+                        setPackage("com.google.android.apps.docs")
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                    }
+                    context.startActivity(driveIntent)
+                    return
+                } catch (e: Exception) {
+                    // Fall through to web viewer if Drive app fails
+                }
+
+                // Fallback to web viewer
+                val webViewerUrl = "https://docs.google.com/viewer?url=${URLEncoder.encode(url, "UTF-8")}"
+                val webIntent = Intent(Intent.ACTION_VIEW, Uri.parse(webViewerUrl)).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                    setPackage(null) // Let user choose browser
+                }
+                context.startActivity(webIntent)
+                return
+            }
+        }
+
+        // For non-Drive links or if all else fails
+        val chooserIntent = Intent.createChooser(baseIntent, "Open document with")
+        context.startActivity(chooserIntent)
+
+    } catch (e: Exception) {
+        Toast.makeText(
+            context,
+            "Error: Could not open document. ${e.localizedMessage}",
+            Toast.LENGTH_LONG
+        ).show()
     }
+}
+
+private fun extractFileIdFromUrl(url: String): String? {
+    val patterns = listOf(
+        Pattern.compile("https://drive\\.google\\.com/file/d/([^/]+)/.*"),
+        Pattern.compile("https://drive\\.google\\.com/open\\?id=([^&]+)"),
+        Pattern.compile("https://docs\\.google\\.com/document/d/([^/]+)/.*")
+    )
+
+    for (pattern in patterns) {
+        val matcher = pattern.matcher(url)
+        if (matcher.find()) {
+            return matcher.group(1)
+        }
+    }
+    return null
 }

@@ -1,5 +1,5 @@
 [versions]
-agp = "8.9.1"
+agp = "8.9.2"
 googleApiClientAndroid = "1.33.0"
 googleApiServicesDrive = "v3-rev305-1.25.0"
 googleHttpClientGson = "1.39.2"
