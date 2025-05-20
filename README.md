@@ -1,4 +1,4 @@
-Perfect—thank you! Here's a well-structured `README.md` file for your **UniVia** project, optimized for GitHub:
+UniVia
 
 ---
 
@@ -48,7 +48,7 @@ Perfect—thank you! Here's a well-structured `README.md` file for your **UniVia
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/your-username/univia.git
+   git clone [https://github.com/your-username/univia.git](https://github.com/Vikashchaurasiya07/UniVia.git)
 ````
 
 
