@@ -88,7 +88,7 @@ UniVia
 
 * Open the APK file.
 
-I* f prompted, enable "Install from Unknown Sources" in settings.
+* If prompted, enable "Install from Unknown Sources" in settings.
 
 ## Follow the installation steps and launch UniVia!
 
