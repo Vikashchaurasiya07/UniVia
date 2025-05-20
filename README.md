@@ -57,7 +57,13 @@ Perfect—thank you! Here's a well-structured `README.md` file for your **UniVia
 
 ## 🖼️ Screenshots
 
-*Add screenshots here to showcase the dashboard, certificate upload, announcements, etc.*
+![image](https://github.com/user-attachments/assets/6bbe61fa-ddbc-4019-86d4-ade98d86b756)
+![image](https://github.com/user-attachments/assets/8f1c677d-abf6-49b6-9f09-0788203acbaa)
+![image](https://github.com/user-attachments/assets/97cb28ca-42b9-42b1-9e7c-d0682f292257)
+![image](https://github.com/user-attachments/assets/db5b2b14-28d2-482f-a740-e5d57ac05c3e)
+![image](https://github.com/user-attachments/assets/e2f70937-0d73-4eae-baab-618361f18398)
+![image](https://github.com/user-attachments/assets/260a32c3-073e-4cc8-b728-66d512c29c98)
+
 
 ---
 
