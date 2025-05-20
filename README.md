@@ -74,6 +74,27 @@ UniVia
 * Admin panel for university-level controls
 
 ---
+---
+## 📥 Download & Installation
+* To try out UniVia on your Android device:
+
+* Go to the Releases Section of this repository.
+
+* Download the latest UniVia.apk file under Assets.
+
+* Transfer the APK to your Android device (if downloaded on desktop).
+
+* On your device:
+
+* Open the APK file.
+
+I* f prompted, enable "Install from Unknown Sources" in settings.
+
+## Follow the installation steps and launch UniVia!
+
+* ⚠️ This APK is for demo/testing purposes only and may require permissions like storage and internet.
+---
+
 
 ## 🤝 Contributing
 
